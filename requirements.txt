@@ -1,0 +1,4 @@
+colorama==0.4.6
+pathspec==0.12.1
+tomli==2.2.1
+tqdm==4.67.1

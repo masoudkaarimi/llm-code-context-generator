@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-code-context-generator"
+version = "0.1.1"
+authors = [
+    { name = "Masoud Karimi", email = "masoud.develop@gmail.com" },
+]
+description = "A tool to generate comprehensive context for LLMs from any codebase."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+keywords = ["llm", "ai", "context", "developer-tools", "cli"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+    "pathspec",
+    "tqdm",
+    "tomli; python_version < '3.11'"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/masoudkaarimi/llm-code-context-generator"
+"Bug Tracker" = "https://github.com/masoudkaarimi/llm-code-context-generator/issues"
+
+[project.scripts]
+llmcontext = "llm_code_context_generator.main:main"
