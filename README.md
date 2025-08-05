@@ -4,7 +4,7 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/llm-code-context-generator)
 [![License: MIT](https://img.shields.io/github/license/masoudkaarimi/llm-code-context-generator.svg)](https://opensource.org/licenses/MIT)
 
-![Demo of LLM Code Context Generator](demo.gif)
+![Demo of LLM Code Context Generator](https://raw.githubusercontent.com/masoudkaarimi/llm-code-context-generator/master/demo.gif)
 
 A powerful command-line tool that scans any project, intelligently filters files, and combines all relevant source code into a single, clean file perfectly formatted for Large
 Language Models (LLMs).
