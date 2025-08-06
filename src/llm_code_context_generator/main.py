@@ -10,16 +10,16 @@ from tqdm import tqdm
 try:
     import tomllib
 except ImportError:
-    # For Python < 3.11, tomli is required
     try:
         import tomli as tomllib
     except ImportError:
         tomllib = None
 
-# Default Configuration
+# --- Default Configuration ---
+CONFIG_FILENAME = "pyproject.toml"
 DEFAULT_ALLOWED_DIRS: List[str] = []
 DEFAULT_IGNORED_DIRS: Set[str] = {'.git', '.github', '.vscode', '.idea', 'node_modules', '__pycache__', 'venv'}
-DEFAULT_IGNORED_FILES: Set[str] = {'.env', '.env.example', '.env.local', '.env.production', '.env.development', }
+DEFAULT_IGNORED_FILES: Set[str] = {'.env', '.env.example', '.env.local', '.env.production', '.env.development'}
 DEFAULT_IGNORED_EXTENSIONS: Set[str] = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.zip', '.pdf', '.pyc', '.o', '.so', '.lock', '.log', '.DS_Store'}
 
 
@@ -59,17 +59,14 @@ def load_config(root_path: str) -> Dict[str, Any]:
         "ignored_files": DEFAULT_IGNORED_FILES.copy(),
         "ignored_extensions": DEFAULT_IGNORED_EXTENSIONS.copy(),
     }
-    config_path = os.path.join(root_path, 'pyproject.toml')
+    config_path = os.path.join(root_path, CONFIG_FILENAME)
 
     if tomllib and os.path.isfile(config_path):
-        logging.info(f"Loading project configuration from: pyproject.toml")
-
+        logging.info(f"Loading project configuration from: {CONFIG_FILENAME}")
         try:
             with open(config_path, 'rb') as f:
                 pyproject_data = tomllib.load(f)
-
             user_config = pyproject_data.get("tool", {}).get("llmcontext", {})
-
             if user_config:
                 logging.info("Found [tool.llmcontext] section. Applying custom config.")
                 config["allowed_dirs"] = user_config.get("allowed_dirs", DEFAULT_ALLOWED_DIRS)
@@ -77,16 +74,14 @@ def load_config(root_path: str) -> Dict[str, Any]:
                 config["ignored_files"].update(user_config.get("ignored_files", []))
                 config["ignored_extensions"].update(user_config.get("ignored_extensions", []))
             else:
-                logging.info("No [tool.llmcontext] section found in pyproject.toml. Using default ignore lists.")
-
+                logging.info(f"No [tool.llmcontext] section found in {CONFIG_FILENAME}. Using defaults.")
         except Exception as e:
-            logging.error(f"Error reading or parsing pyproject.toml: {e}")
+            logging.error(f"Error reading or parsing {CONFIG_FILENAME}: {e}")
     else:
         if not tomllib:
-            logging.warning("TOML library isn't found (install with 'pip install tomli' for Python < 3.11). Skipping pyproject.toml.")
+            logging.warning("TOML library not found. Skipping pyproject.toml. Install with 'pip install tomli' for Python < 3.11")
         else:
-            logging.info("No pyproject.toml found. Using default ignore lists.")
-
+            logging.info(f"No {CONFIG_FILENAME} found. Using default ignore lists.")
     return config
 
 
@@ -102,26 +97,37 @@ def load_gitignore_spec(root_path: str) -> Optional[pathspec.PathSpec]:
 def discover_files(root_path: str, config: Dict[str, Any], spec: Optional[pathspec.PathSpec]) -> List[str]:
     """Discovers all files to be processed, filtering ignored ones."""
     files_to_process = []
+
+    # Ensure allowed_dirs are in POSIX format for consistent matching
+    allowed_paths = [p.replace(os.path.sep, '/') for p in config["allowed_dirs"]]
+
     for dirpath, dirnames, filenames in os.walk(root_path, topdown=True):
-        if config["allowed_dirs"] and os.path.samefile(dirpath, root_path):
-            dirnames[:] = [d for d in dirnames if d in config["allowed_dirs"]]
-
+        # Apply blacklist for directories to prune the walk
         dirnames[:] = [d for d in dirnames if d not in config["ignored_dirs"]]
-
         if spec:
             dirs_to_remove = {d for d in dirnames if spec.match_file(os.path.relpath(os.path.join(dirpath, d), root_path).replace(os.path.sep, '/'))}
             dirnames[:] = [d for d in dirnames if d not in dirs_to_remove]
 
         for filename in filenames:
+            full_path = os.path.join(dirpath, filename)
+            relative_path = os.path.relpath(full_path, root_path).replace(os.path.sep, '/')
+
+            # If allowed_dirs is configured, check if the file is within one of those paths.
+            if allowed_paths:
+                is_allowed = any(relative_path.startswith(p) for p in allowed_paths)
+                if not is_allowed:
+                    continue  # Skip this file if it's not in an allowed path
+
+            # Apply blacklist for files
             if filename in config["ignored_files"] or any(filename.endswith(ext) for ext in config["ignored_extensions"]):
                 continue
 
-            full_path = os.path.join(dirpath, filename)
-            relative_path = os.path.relpath(full_path, root_path).replace(os.path.sep, '/')
+            # Check against .gitignore spec
             if spec and spec.match_file(relative_path):
                 continue
 
             files_to_process.append(full_path)
+
     return files_to_process
 
 
@@ -142,14 +148,13 @@ def main():
         output_file = args.output or f"{project_name}_context.md"
 
         logging.info(f"Starting to process project: '{project_name}'")
-
         gitignore_spec = load_gitignore_spec(root_directory)
+
         files_to_process = discover_files(root_directory, config, gitignore_spec)
 
         with open(output_file, 'w', encoding='utf-8', errors='ignore') as f:
             f.write(f"# Context for Project: {project_name}\n\n")
             logging.info(f"Processing {len(files_to_process)} files...")
-
             for full_path in tqdm(files_to_process, desc="Writing context file", unit="file"):
                 try:
                     with open(full_path, 'r', encoding='utf-8', errors='ignore') as content_handle:
