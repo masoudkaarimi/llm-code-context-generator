@@ -18,16 +18,17 @@ context. Manually copying and pasting code is slow, messy, and nearly impossible
 
 ## The Solution
 
-**LLM Code Context Generator** fixes this. It walks through your project directory, uses your `.gitignore` file and a custom config to skip irrelevant files, and creates one
-single, organized Markdown file.
+**LLM Code Context Generator** fixes this. It walks through your project directory, uses your .gitignore file, comprehensive built-in defaults, and a custom config to skip
+irrelevant files, and creates one single, organized Markdown file.
 
 You can paste this file into your favorite AI chat to give it the deep understanding it needs to provide truly helpful, project-aware answers.
 
 ## Key Features
 
 - **🚀 Fast and Local**: Runs entirely on your machine, ensuring your code stays private and the process is quick.
-- **🧠 Smart Filtering**: Automatically understands and uses the rules from your project's `.gitignore` file.
+- **🧠 Smart Filtering**: Automatically uses your `.gitignore` rules, plus powerful built-in defaults to skip common noise (like node_modules, .git, .log files, and media).
 - **⚙️ Standardized Configuration**: Configure the tool using the standard `pyproject.toml` file, keeping your project root clean.
+- **✨ Priority Overrides**: Explicitly allow specific files or extensions (like `.env` or `.md`) to bypass and override all ignore rules.
 - **🤖 AI-Friendly Format**: The output is clean Markdown with language-specific code blocks, making it easy for LLMs to parse.
 - **✅ Easy to Use**: Install with a single command and run it from anywhere on your system.
 
@@ -85,7 +86,7 @@ llmcontext . -o my-api-context.md
 ## Configuration (via `pyproject.toml`)
 
 For precise control, you can add a dedicated section to your project's `pyproject.toml` file. The tool will automatically find and use it. This is the recommended way to handle
-project-specific configurations, as it keeps your project directory clean and follows modern Python standards.
+project-specific configurations.
 
 ### Sample Configuration
 
@@ -95,9 +96,9 @@ Add a `[tool.llmcontext]` section to your `pyproject.toml` file like this:
 # In your pyproject.toml file
 
 [tool.llmcontext]
-# A list of top-level directories to exclusively include.
-# If not empty, only these directories will be scanned.
-allowed_dirs = ["src", "app", "core"]
+
+# --- IGNORE LISTS (Blacklists) ---
+# These are added to the built-in defaults
 
 # A list of directory names to ignore everywhere.
 ignored_dirs = [
@@ -118,20 +119,55 @@ ignored_files = [
 ignored_extensions = [
     ".log",
     ".tmp",
-    ".md",
     ".bak"
+]
+
+
+# --- ALLOW LISTS (Whitelists with Priority) ---
+
+# A list of top-level directories to exclusively include.
+# If not empty, only these directories will be scanned.
+allowed_dirs = ["src", "app", "core"]
+
+# A list of exact filenames to FORCE include,
+# even if they are in .gitignore or default ignore lists.
+allowed_files = [
+    ".env.example",
+    "README.md"
+]
+
+# A list of file extensions to FORCE include,
+# even if they are ignored by default (e.g., .md, .json).
+allowed_extensions = [
+    ".md",
+    ".json"
 ]
 ```
 
 ### Configuration Keys Explained
 
-- `allowed_dirs`: (Whitelist) An array of strings. If you add folders here (e.g., `"src"`), the tool will **only** look inside those folders at the top level. This is great for
-  focusing on just your source code.
-- `ignored_dirs`: (Blacklist) An array of strings. The tool will completely skip any folder with these names (e.g., `"tests"`).
-- `ignored_files`: (Blacklist) An array of strings. The tool will skip any file that has one of these exact names (e.g., `"docker-compose.yml"`).
-- `ignored_extensions`: (Blacklist) An array of strings. The tool will skip any file ending with one of these extensions (e.g., `".log"`, `".md"`).
+#### Blacklists (What to Ignore)
 
-**Note:** The tool applies ignore rules from `.gitignore` first, then applies the rules from your `pyproject.toml` file for even more control.
+- `ignored_dirs`: An array of strings. The tool will completely skip any folder with these names (e.g., `"tests"`).
+- `ignored_files`: An array of strings. The tool will skip any file that has one of these exact names (e.g., `"docker-compose.yml"`).
+- `ignored_extensions`: An array of strings. The tool will skip any file ending with one of these extensions (e.g., `".log"`).
+
+#### Whitelists (What to Include)
+
+- `allowed_dirs`: An array of strings. If you add folders here (e.g., `"src"`), the tool will only look inside those folders at the top level.
+- `allowed_files`: (Priority) An array of strings. Any file matching these exact names/paths (e.g., `"README.md"`) will be included, even if it's ignored by `.gitignore` or
+  `ignored_extensions`.
+- `allowed_extensions`: (Priority) An array of strings. Any file with these extensions (e.g., `".md"`) will be included, even if it's ignored by default. This is the key to
+  including documentation or config files.
+
+#### How Filtering and Priority Works
+
+The tool applies rules in a specific order to give you maximum control:
+
+1. `Priority 'Allow' Rules`: If a file matches `allowed_files` or `allowed_extensions`, it is always included. This overrides all other ignore rules.
+2. `'Allowed Dirs' Rule`: If `allowed_dirs` is not empty, any file outside of those directories is skipped.
+3. `'Ignore' Rules`: If a file matches any rule in `ignored_dirs`, `ignored_files`, `ignored_extensions`, the built-in defaults, or your `.gitignore` file, it is skipped.
+4. `Default Include`: If a file is not caught by any of the rules above, it is included.
 
 ## Contributing
 
